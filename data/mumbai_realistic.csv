@@ -1,2 +1,0 @@
-test_id,operator,technology,circle,download_speed,upload_speed,signal_strength,latency_ms,test_date,latitude,longitude,quality_score
-TEST_022698,vi,5G,Mumbai,49.37,20.67,-95.89,47.02,2026-04-26,19.073772,72.961332,68.18
