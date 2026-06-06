@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NetMap India — Live Data</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
+        #map { height: 100vh; width: 100%; }
+        .header { position: absolute; top: 10px; left: 50px; z-index: 1000; background: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+        .header h1 { margin: 0; font-size: 18px; }
+        .header p { margin: 4px 0 0; font-size: 12px; color: #666; }
+        .controls { position: absolute; top: 10px; right: 10px; z-index: 1000; background: white; padding: 12px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+        .controls select { padding: 6px; font-size: 12px; border-radius: 4px; border: 1px solid #ddd; }
+        .legend { position: absolute; bottom: 30px; right: 10px; z-index: 1000; background: white; padding: 12px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); font-size: 12px; }
+        .legend-item { display: flex; align-items: center; margin: 4px 0; }
+        .legend-color { width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
+        .loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2000; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.2); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>NetMap India</h1>
+        <p>Live API data • Click city for operator breakdown</p>
+    </div>
+    <div class="controls">
+        <select id="techFilter" onchange="loadData()">
+            <option value="all">All Technologies</option>
+            <option value="4G">4G Only</option>
+            <option value="5G">5G Only</option>
+        </select>
+    </div>
+    <div class="legend">
+        <div class="legend-item"><div class="legend-color" style="background:#1A936F"></div>Jio</div>
+        <div class="legend-item"><div class="legend-color" style="background:#004E89"></div>Airtel</div>
+        <div class="legend-item"><div class="legend-color" style="background:#FF6B35"></div>Vi</div>
+    </div>
+    <div class="loading" id="loading">Loading data...</div>
+    <div id="map"></div>
+
+    <script>
+        const map = L.map('map').setView([22.5, 78.5], 5);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        const colors = {'jio': '#1A936F', 'airtel': '#004E89', 'vi': '#FF6B35'};
+        let markers = [];
+
+        const cityCoords = {
+            'Mumbai': [19.0760, 72.8777],
+            'Delhi': [28.7041, 77.1025],
+            'Bangalore': [12.9716, 77.5946],
+            'Chennai': [13.0827, 80.2707],
+            'Kolkata': [22.5726, 88.3639],
+            'Hyderabad': [17.3850, 78.4867],
+            'Pune': [18.5204, 73.8567],
+            'Ahmedabad': [23.0225, 72.5714],
+            'Jaipur': [26.9124, 75.7873],
+            'Lucknow': [26.8467, 80.9462]
+        };
+
+        async function loadData() {
+            document.getElementById('loading').style.display = 'block';
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+
+            const tech = document.getElementById('techFilter').value;
+            
+            for (const [city, coords] of Object.entries(cityCoords)) {
+                try {
+                    const url = tech === 'all' 
+                        ? `http://127.0.0.1:8000/compare/${city}`
+                        : `http://127.0.0.1:8000/compare/${city}?technology=${tech}`;
+                    
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    
+                    if (data.operators && data.operators.length > 0) {
+                        const best = data.operators[0];
+                        
+                        // FIXED: Larger radius, always visible
+                        const radius = 15;
+                        
+                        const marker = L.circleMarker(coords, {
+                            radius: radius,
+                            fillColor: colors[best.operator] || '#999',
+                            color: '#000',
+                            weight: 2,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        }).addTo(map);
+                        
+                        let popupHtml = `<b>${city}</b> (${data.technology})<<br><hr>`;
+                        data.operators.forEach(op => {
+                            popupHtml += `
+                                <b>${op.operator.toUpperCase()}</b><br>
+                                Quality: ${op.avg_quality} | 
+                                Download: ${op.avg_download} Mbps<br>
+                                Tests: ${op.tests}<br><br>
+                            `;
+                        });
+                        
+                        marker.bindPopup(popupHtml);
+                        markers.push(marker);
+                        
+                        // DEBUG: Add label
+                        L.tooltip({
+                            permanent: true,
+                            direction: 'top',
+                            className: 'city-label'
+                        })
+                        .setContent(city)
+                        .setLatLng(coords)
+                        .addTo(map);
+                    }
+                } catch (err) {
+                    console.error(`Failed to load ${city}:`, err);
+                }
+            }
+            
+            document.getElementById('loading').style.display = 'none';
+            console.log(`Rendered ${markers.length} markers`);
+        }
+
+        loadData();
+    </script>
+</body>
+</html>

@@ -1,0 +1,1 @@
+{"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [72.96, 19.07]}, "properties": {"operator": "vi", "technology": "5G", "avg_download": 49.37, "avg_quality": 68.18}}]}
